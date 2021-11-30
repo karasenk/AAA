@@ -1,26 +1,32 @@
 import pygame
 
-
-def draw(screen, n):
-    screen.fill((0, 0, 0))
-    step = 300 // n
-    for i in range(1, n + 1):
-        r0 = ((0, 150 - 150 // i), (300, 300 // i))  # горизонтальные
-        r1 = ((150 - 150 // i, 0), (300 // i, 300))  # вертикальные
-        pygame.draw.ellipse(screen, pygame.Color(255, 255, 255), r0, width=1)
-        pygame.draw.ellipse(screen, pygame.Color(255, 255, 255), r1, width=1)
-
-
-n = input()
-if n.isdigit():
+if __name__ == '__main__':
     pygame.init()
-    n = int(n)
-    screen = pygame.display.set_mode((300, 300))
-    pygame.display.set_caption('сфера')
-    draw(screen, n)
-    pygame.display.flip()
-    while pygame.event.wait().type != pygame.QUIT:
-        draw(screen, n)
+    pygame.display.set_caption('шарики')
+    v = 100
+    size = 500, 500
+    screen = pygame.display.set_mode(size)
+    clock = pygame.time.Clock()
+    running = True
+    draw = False
+    screen.fill((0, 0, 0))
+    coords = []
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONUP:
+                screen.fill((0, 0, 0))
+                draw = True
+                coords.append([event.pos, 1])
+                pygame.draw.circle(screen, (255, 200, 250), event.pos, 10)
+        if draw:
+            for c in coords:
+                if c[0] + 1 >= size[0]:
+                    coef = -1
+                pygame.draw.circle(screen, (255, 200, 250), pose, 10)
+
+        pygame.display.flip()
     pygame.quit()
-else:
-    print('Неправильный формат ввода')
+
+#  сделой коеффициент (1 и -1) для направления
