@@ -48,24 +48,59 @@ class Life(Board):
     def __init__(self, width, height):
         super().__init__(width, height)
 
-    def get_click(self, mouse_pos, event):
-        cell = self.get_cell(mouse_pos)
+    def get_click(self, event):
+        cell = self.get_cell(event.pos)
         if cell:
             if event.button == 1:
                 self.add(cell)
             elif event.button == 3:
-                self.living()
+                self.next_move()
 
     def add(self, cell):
         self.board[cell[0]][cell[1]] = 1
         rect = self.left + cell[1] * self.cell_size, self.top + cell[0] * self.cell_size,\
                self.cell_size, self.cell_size
         pygame.draw.rect(screen, (50, 230, 5), rect)
+        pygame.display.flip()
 
-    def living(self);
-     pass
+    def delete(self, cell):
+        self.board[cell[0]][cell[1]] = 0
+        rect = self.left + cell[1] * self.cell_size, self.top + cell[0] * self.cell_size,\
+               self.cell_size, self.cell_size
+        pygame.draw.rect(screen, (0, 0, 0), rect)
+        pygame.display.flip()
+
+    def death(self):
+        for i in range(len(self.board)):
+            for j in range(len(self.board[i])):
+                if self.board[i][j] != 0:
+                    return False
+        print('все умерли')
+        return True
+
+    def check_neighbors(self, i, j):
+        alive = 0
+        for x in range(i - 1, i + 2):
+            if x < len(self.board) and x >= 0:
+                for y in range(j - 1, j + 2):
+                    if y < len(self.board[0]) and y >= 0:
+                        if self.board[x][y] == 1 and not (x == i and y == j):
+                            alive += 1
+        return alive
+
     def next_move(self):
-        pass
+        print('a')
+        while not self.death():
+            for i in range(len(self.board)):
+                for j in range(len(self.board[i])):
+                    alive = self.check_neighbors(i, j)
+                    if self.board[i][j] == 0:
+                        if alive == 3:
+                            self.add((i, j))
+                    else:
+                        if alive != 2 and alive != 3:
+                            self.delete((i, j))
+
 
 if '__main__' == __name__:
     pygame.init()
@@ -78,7 +113,9 @@ if '__main__' == __name__:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONUP:
-                life.get_click(event.pos, event)
+            elif event.type == pygame.MOUSEBUTTONUP:
+                life.get_click(event)
+            elif event.type == pygame.K_SPACE:
+                life.next_move()
         life.render(screen)
         pygame.display.flip()
