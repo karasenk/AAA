@@ -1,0 +1,42 @@
+#!/usr/bin/env python3 
+from ev3dev2.motor import MoveTank, OUTPUT_B, OUTPUT_C, MoveSteering 
+from ev3dev2.sensor.lego import ColorSensor 
+from ev3dev2.sensor import INPUT_1, INPUT_2 
+from ev3dev2.motor import LargeMotor 
+from time import sleep
+from math import pi 
+from sys import stderr 
+from ev3dev2.sound import Sound 
+
+
+class Robot():
+    def __init__(self):
+        self.steer_pair = MoveSteering(OUTPUT_B, OUTPUT_C)
+        self.sound = Sound()
+        self.d = 56
+        self.w = 110
+        self.s = 270
+        self.leftm = LargeMotor(OUTPUT_B) 
+        self.rightm = LargeMotor(OUTPUT_C) 
+        self.cencor1 = ColorSensor(INPUT_1) 
+        self.cencor2 = ColorSensor(INPUT_2) 
+        self.start = self.leftm.position
+
+        self.kp = 0.3
+        self.ki = 0.0002
+        self.kd = 0.35
+
+        self.err = 0
+        self.integral = 0 
+    
+    def move(self, speed):
+        err = self.cencor1.reflected_light_intensity - self.cencor2.reflected_light_intensity
+        derrir = err - self.err
+        self.integral += 0.5 * err
+        steer = err * self.kp + derrir * self.kd + self.integral * self.ki
+        self.steer_pair.on(steer, speed)
+        sleep(0.002)
+
+robot = Robot()
+while True:
+    robot.move(30)
