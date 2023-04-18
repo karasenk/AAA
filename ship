@@ -1,12 +1,13 @@
 #!/usr/bin/env python3 
-from ev3dev2.motor import MoveTank, OUTPUT_B, OUTPUT_C, MoveSteering 
-from ev3dev2.sensor.lego import ColorSensor 
-from ev3dev2.sensor import INPUT_1, INPUT_2 
-from ev3dev2.motor import LargeMotor 
+from math import pi
+from sys import stderr
 from time import sleep
-from math import pi 
-from sys import stderr 
-from ev3dev2.sound import Sound 
+
+from ev3dev2.motor import (OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, LargeMotor,
+                           MediumMotor, MoveSteering, MoveTank)
+from ev3dev2.sensor import INPUT_1, INPUT_2, INPUT_3
+from ev3dev2.sensor.lego import ColorSensor
+from ev3dev2.sound import Sound
 
 
 class Robot():
@@ -14,29 +15,144 @@ class Robot():
         self.steer_pair = MoveSteering(OUTPUT_B, OUTPUT_C)
         self.sound = Sound()
         self.d = 56
-        self.w = 110
+        self.w = 145
         self.s = 270
+
         self.leftm = LargeMotor(OUTPUT_B) 
-        self.rightm = LargeMotor(OUTPUT_C) 
+        self.rightm = LargeMotor(OUTPUT_C)
+        self.upm = MediumMotor(OUTPUT_D)
+        self.grabm = MediumMotor(OUTPUT_A)
+
+        self.grabm.polarity = 'inversed'
+
         self.cencor1 = ColorSensor(INPUT_1) 
         self.cencor2 = ColorSensor(INPUT_2) 
+        self.cencor3 = ColorSensor(INPUT_3) 
         self.start = self.leftm.position
 
         self.kp = 0.3
         self.ki = 0.0002
-        self.kd = 0.35
+        self.kd = 0.25
+        self.rotate_koef = 360 / (pi * self.d)
 
         self.err = 0
         self.integral = 0 
+        self.speed = 30
+
+        self.infocolors = []
+        # 0 - white 1 - green 2 - blue
     
-    def move(self, speed):
+    def move(self):
         err = self.cencor1.reflected_light_intensity - self.cencor2.reflected_light_intensity
         derrir = err - self.err
         self.integral += 0.5 * err
         steer = err * self.kp + derrir * self.kd + self.integral * self.ki
-        self.steer_pair.on(steer, speed)
+        self.steer_pair.on(steer, self.speed)
         sleep(0.002)
+    
+    def move_before_turn(self):
+        while not (self.cencor1.reflected_light_intensity < 25 and self.cencor2.reflected_light_intensity < 25):
+            self.move()
+        self.steer_pair.off()
+        angle = (60 * 360) / (pi * self.d)
+        self.steer_pair.on_for_degrees(0, self.speed, angle)
+    
+    def turn(self, right=1, angle=90):
+        enc = angle * self.w / self.d
+        self.steer_pair.on_for_degrees(100 * right, self.speed, enc)
+        err = self.cencor1.reflected_light_intensity - self.cencor2.reflected_light_intensity
+        while abs(err) > 5:
+            err = self.cencor1.reflected_light_intensity - self.cencor2.reflected_light_intensity
+            steer = err * self.kp
+            self.steer_pair.on(steer, self.speed)
+    
+    def read_color(self, n, colors):
+        count = len(colors)
+        colors = [colors[i * count // n : count // n * (i + 1)] for i in range(n)]
+        print(colors, file=stderr)
+        for cube in colors:
+            white = 0
+            green = 0
+            blue = 0
+            for c in cube:
+                if sum(c) > 498:
+                    white += 1
+                elif max(c) == c[1 ]:
+                    green += 1
+                else:
+                    blue += 1
+            blue *= 0.5
+            if white > green and white > blue:
+                self.infocolors.append(0)
+                print('white', file=stderr)
+            elif green > white and green > blue:
+                self.infocolors.append(1)
+                print('green', file=stderr)
+            else:
+                self.infocolors.append(2)
+                print('blue', file=stderr)
+    
+    def move_after_color_reading(self):
+        self.steer_pair.on_for_degrees(80, self.speed, 70 * self.w / self.d)
+        self.steer_pair.on(10, self.speed)
+        self.move_before_turn()
+        
 
-robot = Robot()
-while True:
-    robot.move(30)
+def go():
+    robot = Robot()
+    
+    robot.steer_pair.on_for_degrees(0, robot.speed, 90 * robot.rotate_koef) 
+    robot.move_before_turn()
+    robot.steer_pair.on_for_degrees(0, robot.speed, 60 * robot.rotate_koef)
+    robot.steer_pair.on_for_degrees(0, -robot.speed, 55 * robot.rotate_koef)
+    robot.steer_pair.on_for_degrees(-100, -robot.speed, 45 * robot.w / robot.d)
+    start_pos = robot.leftm.position
+    robot.steer_pair.on(20, -15)
+
+    rgb = [0, 0, 0]
+    colors = []
+    while robot.leftm.position > start_pos - 320:
+        c = robot.cencor3.raw
+        if sum(c) > 20:
+            colors.append(c)
+    robot.steer_pair.off()
+    robot.read_color(2, colors)
+
+    return
+
+    robot.move_after_color_reading()
+    robot.turn(-1)
+    
+    start_pos = robot.rightm.position
+    while robot.rightm.position < start_pos + 450:
+        robot.move()
+    robot.steer_pair.on_for_degrees(100, -robot.speed, 90 * robot.w / robot.d)
+
+    start_pos = robot.rightm.position
+    robot.steer_pair.on(0, robot.speed)
+    while robot.rightm.position < start_pos + 350:
+        pass
+    robot.steer_pair.off()
+ 
+    robot.steer_pair.on_for_degrees(100, -robot.speed, 90 * robot.w / robot.d)
+
+    robot.steer_pair.on_for_degrees(0, -robot.speed, 100 * robot.rotate_koef)
+
+    
+
+def test():
+    robot = Robot()
+    '''robot.upm.on_for_degrees(20, 540)
+    sleep(2)
+    robot.upm.on_for_degrees(-20, 500)'''
+
+    robot.grabm.on_for_degrees(20, 80)
+    robot.grabm.run_forever()
+    robot.upm.on_for_degrees(20, 540)
+    sleep(2)
+    robot.upm.on_for_degrees(-20, 500)
+    
+    robot.grabm.on_for_degrees(-20, 90)
+
+
+go()
